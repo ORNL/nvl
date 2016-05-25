@@ -5,3 +5,6 @@ ulimit -p 65536
 ulimit -Sc 0
 
 export PATH=$PATH:/opt/simple_busybox/openmpi-1.10.2/bin:/opt/hobbes
+
+export HOBBES_DB_SET=1
+echo "HOBBES_DB_SET=$HOBBES_DB_SET"
