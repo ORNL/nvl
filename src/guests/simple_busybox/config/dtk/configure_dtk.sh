@@ -36,6 +36,7 @@ cmake \
     -D Trilinos_EXTRA_LINK_FLAGS:STRING="-static -L${PATH_TO_INSTALL_DIR}/lib -lnetcdf -L${PATH_TO_INSTALL_DIR}/lib -lhdf5_hl -lhdf5 -lm -lz -lcurl -lblas -llapack -lblas -llapack -ldl" \
     -D Trilinos_EXTRA_REPOSITORIES="DataTransferKit" \
     -D Trilinos_ASSERT_MISSING_PACKAGES=OFF \
+      -D Trilinos_ENABLE_EXPLICIT_INSTANTIATION:BOOL=ON \
     -D Trilinos_ENABLE_Epetra:BOOL=ON \
     -D Trilinos_ENABLE_AztecOO:BOOL=ON \
     -D Trilinos_ENABLE_CXX11:BOOL=ON \
@@ -46,6 +47,8 @@ cmake \
     -D Trilinos_ENABLE_DataTransferKitMoabAdapters:BOOL=OFF \
     -D Trilinos_ENABLE_DataTransferKitLibmeshAdapters:BOOL=OFF \
     -D Trilinos_ENABLE_DataTransferKitClassicDTKAdapters:BOOL=OFF \
+      -D Trilinos_ENABLE_DataTransferKitC_API:BOOL=ON \
+      -D Tpetra_INST_INT_UNSIGNED_LONG_LONG:BOOL=ON \
     -D Tpetra_INST_COMPLEX_DOUBLE:BOOL=OFF \
     -D Tpetra_INST_COMPLEX_FLOAT:BOOL=OFF \
     -D DataTransferKit_ENABLE_DBC:BOOL=OFF \

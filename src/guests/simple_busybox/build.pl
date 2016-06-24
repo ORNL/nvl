@@ -122,7 +122,7 @@ push(@packages, \%curl);
 
 my %hdf5;
 $hdf5{package_type}	= "tarball";
-$hdf5{version}		= "1.8.16";
+$hdf5{version}		= "1.8.17";
 $hdf5{basename}		= "hdf5-$hdf5{version}";
 $hdf5{tarball}		= "$hdf5{basename}.tar.bz2";
 $hdf5{url}		= "https://www.hdfgroup.org/ftp/HDF5/current/src/$hdf5{tarball}";
@@ -409,8 +409,9 @@ if ($program_args{build_ompi}) {
 	# This means we need to be root to do a make install and will possibly screw up the host.
 	# We should really be using chroot or something better.
 	#system ("LD_LIBRARY_PATH=$BASEDIR/$SRCDIR/slurm-install/lib ./configure --prefix=/opt/$ompi{basename} --disable-shared --enable-static --with-verbs=yes") == 0
-	system ("LDFLAGS=-static ./configure --prefix=/opt/simple_busybox/$ompi{basename} --disable-shared --enable-static --disable-dlopen --without-memory-manager --disable-vt >/dev/null") == 0
-          or die "failed to configure";
+	# TJN: (19may2016) add '--disable-getpwuid' to avoid errors at runtime
+	#      about missing USERNAME info....grr :-/
+	system ("LDFLAGS=-static ./configure --prefix=/opt/simple_busybox/$ompi{basename} --disable-shared --enable-static --disable-dlopen --without-memory-manager --disable-vt --disable-getpwuid >/dev/null") == 0 or die "failed to configure";
 	system ("make -j 4 LDFLAGS=-all-static >/dev/null") == 0 or die "failed to make";
 	system ("make install >/dev/null") == 0 or die "failed to install";
 	chdir "$BASEDIR" or die;
@@ -469,6 +470,14 @@ if ($program_args{build_pisces}) {
 	system ("make") == 0 or die "failed to make";
 	chdir "$BASEDIR" or die;
 	print "CNL: STEP 4: Done building pisces/petlib\n";
+
+	# STEP 4b: Build petlib/petos. (SOMETHING?) Pisces depends on this.
+	print "CNL: STEP 4b: Building pisces/petlib/petos\n";
+	chdir "$SRCDIR/$pisces{src_subdir}/petlib/petos" or die;
+	system "PWD=$BASEDIR/$SRCDIR/$pisces{src_subdir}/petlib/petos LINUX_KERN=$BASEDIR/$SRCDIR/$kernel{basename} make clean";
+	system "PWD=$BASEDIR/$SRCDIR/$pisces{src_subdir}/petlib/petos LINUX_KERN=$BASEDIR/$SRCDIR/$kernel{basename} make";
+	chdir "$BASEDIR" or die;
+	print "CNL: STEP 4b: Done building pisces/petlib/petos\n";
 
 	# STEP 5: Build XPMEM for host Linux. Pisces depends on this.
 	print "CNL: STEP 5: Building pisces/xpmem\n";
@@ -700,15 +709,25 @@ if ($program_args{build_image}) {
 	system("rsync -a $SRCDIR/$libhugetlbfs{basename}/_install/\* $IMAGEDIR/") == 0
 		or die "Failed to rsync libhugetlbfs to $IMAGEDIR";
 
-	# Install OpenMPI into image
-	mkdir "$IMAGEDIR/opt/simple_busybox";
-	system("cp -R /opt/simple_busybox/$ompi{basename} $IMAGEDIR/opt/simple_busybox") == 0
-		or die "Failed to rsync OpenMPI to $IMAGEDIR";
+	# Install OpenMPI (OMPI) into image
+#	mkdir "$IMAGEDIR/opt/simple_busybox";
+#	system("cp -R /usr/share/openmpi/ $IMAGEDIR/usr/share") == 0
+#		or die "Failed to copy /usr/share/openmpi to $IMAGEDIR/usr/share";
+#	system("cp -R /etc/openmpi/ $IMAGEDIR/etc") == 0
+#                or die "Failed to copy /etc/openmpi to $IMAGEDIR/etc";
+#	system("cp -f /usr/bin/mpi* /usr/bin/ompi* /usr/bin/orte* $IMAGEDIR/usr/bin") == 0
+#		or die "Failed to copy OMPI binaries to $IMAGEDIR/usr/bin";
+#	system("cp -Rf /usr/lib/libmca* /usr/lib/libmpi* /usr/lib/libopen-pal* /usr/lib/libompi* /usr/lib/openmpi /usr/lib/libopen-rte* $IMAGEDIR/usr/lib") == 0
+#		or die "Failed to copy OMPI lib to image";
+#	system("cp -R /opt/simple_busybox/$ompi{basename} $IMAGEDIR/opt/simple_busybox") == 0
+#		or die "Failed to rsync OpenMPI to $IMAGEDIR";
 
 	# Install Pisces / Hobbes / Leviathan into image
 	system("cp -R $SRCDIR/pisces/xpmem/mod/xpmem.ko $IMAGEDIR/opt/hobbes") == 0
 		or die "error 1";
 	system("cp -R $SRCDIR/pisces/pisces/pisces.ko $IMAGEDIR/opt/hobbes") == 0
+		or die "error 2";
+	system("cp -R $SRCDIR/pisces/petlib/petos/petos.ko  $IMAGEDIR/opt/hobbes") == 0
 		or die "error 2";
 	system("cp -R $SRCDIR/pisces/petlib/hw_status $IMAGEDIR/opt/hobbes") == 0
 		or die "error 2";
@@ -731,11 +750,28 @@ if ($program_args{build_image}) {
   system("cp -R $SRCDIR/test/null/null $IMAGEDIR/opt/hobbes") == 0
       or die "error 12";
 
+	# TJN: (19may2016) Copy over manually built DTK Hobbes-DEMO down in /hobbes/build
+	# XXX: USING HARDCODED PATHS
+	print "XXX: SKIPPING hobbes-build rsync...\n";
+	if ( -d "/hobbes/build" ) {
+		system("mkdir -p $IMAGEDIR/hobbes/build") == 0 or die "error 21";
+		print "Rsync DTK-Hobbes-Demo (~6.5GB) to guest image...\n";
+		print "  SRC: /hobbes/build\n";
+		print "  DST: $IMAGEDIR/opt/hobbes_dtkpod_demo\n";
+		# GV
+		system("rsync -a /hobbes/build/\* $IMAGEDIR/hobbes/build") == 0
+			or die "Failed to rsync DTK-POD-Demo to $IMAGEDIR/opt/hobbes_dtkpod_demo";
+		print "Finished with the rsync.\n";
+	}
+
 	# Install Hobbes Enclave DTK demo files
-	system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/DataTransferKitSTKMeshAdapters_STKInlineInterpolation.exe $IMAGEDIR/opt/hobbes_enclave_demo");
-	system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/input.xml $IMAGEDIR/opt/hobbes_enclave_demo");
-	system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/cube_mesh.exo $IMAGEDIR/opt/hobbes_enclave_demo");
-	system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/pincell_mesh.exo $IMAGEDIR/opt/hobbes_enclave_demo");
+	# XXX: ONLY Copy Other DTK stuff if the exe's exist.
+	if ( -f "$SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/DataTransferKitSTKMeshAdapters_STKInlineInterpolation.exe" ) {
+		system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/DataTransferKitSTKMeshAdapters_STKInlineInterpolation.exe $IMAGEDIR/opt/hobbes_enclave_demo");
+		system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/input.xml $IMAGEDIR/opt/hobbes_enclave_demo");
+		system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/cube_mesh.exo $IMAGEDIR/opt/hobbes_enclave_demo");
+		system("cp -R $SRCDIR/dtk/BUILD/DataTransferKit/packages/Adapters/STKMesh/example/pincell_mesh.exo $IMAGEDIR/opt/hobbes_enclave_demo");
+	}
 
 	# Files copied from build host
 	system ("cp /etc/localtime $IMAGEDIR/etc");
@@ -750,7 +786,9 @@ if ($program_args{build_image}) {
 	system ("cp /usr/bin/strace $IMAGEDIR/usr/bin");
 	system ("cp /usr/bin/ssh $IMAGEDIR/usr/bin");
 	system ("cp /usr/bin/scp $IMAGEDIR/usr/bin");
-	system ("cp -R /usr/share/terminfo $IMAGEDIR/usr/share");
+	#system ("cp -R /usr/share/terminfo $IMAGEDIR/usr/share");
+	# XXX: TJN hack terminfo to see if it fixes console to vm problem
+	system ("cp -R /hobbes/terminfo $IMAGEDIR/usr/share");
 
 	# Infiniband files copied from build host
 	#system ("cp -R /etc/libibverbs.d $IMAGEDIR/etc");
@@ -797,7 +835,8 @@ if ($program_args{build_isoimage}) {
 	system ("cp -L $LDLINUX isoimage") == 0 || die "couldn't copy ldlinux.c32 to isoimage: $?";
 	system ("cp $SRCDIR/$kernel{basename}/arch/x86/boot/bzImage isoimage") == 0 || die "couldn't copy bzImage to isoimage directory";
 	system ("cp initramfs.gz isoimage/initrd.img") == 0 || die "couldn't copy initramfs.gz to isoimage/initrd.img";
-	system ("echo 'default bzImage initrd=initrd.img console=ttyS0' > isoimage/isolinux.cfg") == 0 || die "couldn't create isoimage configuration file";
+	#system ("echo 'default bzImage initrd=initrd.img console=ttyS0' > isoimage/isolinux.cfg") == 0 || die "couldn't create isoimage configuration file";
+	system ("echo 'default bzImage initrd=initrd.img' > isoimage/isolinux.cfg") == 0 || die "couldn't create isoimage configuration file";
 #	system "echo 'default bzImage initrd=initrd.img' > isoimage/isolinux.cfg";
 	system ("genisoimage -J -r -o image.iso -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table isoimage") == 0 || die "couldn't make isoimage";
 }

@@ -39,6 +39,7 @@ echo "Starting dropbear ssh server"
 #echo "Sleeping for 10 seconds to let Infiniband initialize"
 #sleep 10
 
+
 #echo "Setting Infiniband /dev/* permissions to 0666"
 #chmod 0777 /dev/infiniband
 #chmod 0666 /dev/infiniband/*
