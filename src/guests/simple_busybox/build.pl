@@ -10,6 +10,7 @@ my $SRCDIR     = "src";
 my $CONFIGDIR  = "config";
 my $OVERLAYDIR = "overlays";
 my $IMAGEDIR   = "image";
+my $HOBBESBUILDDIR = "/hobbes";
 
 use vars qw/*name *dir *prune/;
 *name   = *File::Find::name;
@@ -750,16 +751,16 @@ if ($program_args{build_image}) {
   system("cp -R $SRCDIR/test/null/null $IMAGEDIR/opt/hobbes") == 0
       or die "error 12";
 
-	# TJN: (19may2016) Copy over manually built DTK Hobbes-DEMO down in /hobbes/build
+	# TJN: (19may2016) Copy over manually built DTK Hobbes-DEMO down in $HOBBESBUILDDIR/build
 	# XXX: USING HARDCODED PATHS
 	print "XXX: SKIPPING hobbes-build rsync...\n";
 	if ( -d "/hobbes/build" ) {
 		system("mkdir -p $IMAGEDIR/hobbes/build") == 0 or die "error 21";
 		print "Rsync DTK-Hobbes-Demo (~6.5GB) to guest image...\n";
-		print "  SRC: /hobbes/build\n";
+		print "  SRC: $HOBBESBUILDDIR/build\n";
 		print "  DST: $IMAGEDIR/opt/hobbes_dtkpod_demo\n";
 		# GV
-		system("rsync -a /hobbes/build/\* $IMAGEDIR/hobbes/build") == 0
+		system("rsync -a $HOBBESBUILDDIR/build/\* $IMAGEDIR/hobbes/build") == 0
 			or die "Failed to rsync DTK-POD-Demo to $IMAGEDIR/opt/hobbes_dtkpod_demo";
 		print "Finished with the rsync.\n";
 	}
@@ -788,7 +789,7 @@ if ($program_args{build_image}) {
 	system ("cp /usr/bin/scp $IMAGEDIR/usr/bin");
 	#system ("cp -R /usr/share/terminfo $IMAGEDIR/usr/share");
 	# XXX: TJN hack terminfo to see if it fixes console to vm problem
-	system ("cp -R /hobbes/terminfo $IMAGEDIR/usr/share");
+	system ("cp -R $HOBBESBUILDDIR/terminfo $IMAGEDIR/usr/share");
 
 	# Infiniband files copied from build host
 	#system ("cp -R /etc/libibverbs.d $IMAGEDIR/etc");
